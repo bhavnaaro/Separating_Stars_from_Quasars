@@ -1,0 +1,21 @@
+Arun tries to use Neural Nets for training on a dataset. He is not sure he will not
+be stuck at local minima. So he trains thrice and each time starts with different
+initial weights. The hypotheses are named h1, h2 and h3. 
+On the validation set, h1 offers 90%, h2 80% and h3 60% accuracy. He doesn't want to
+ignore any of them and decides to use ensemble learning. He assigns probabilities 
+to the hypotheses by normalizing their accuracies. 
+
+The neural net has two output neurons after softmax activation. The two neurons
+represent + and - classes.
+
+On a new query instance, at the first output neuron, h1 outputs 0.8, h2 outputs 0.4 
+and h3 outputs 0.3.  
+
+For the ensemble learning, he decides to use Bayesian Optimal classifier.
+What is the class output by the B.O. Classifier for the new query instance???
+
+
+
+
+(Answer: +ve class. Just)
+
