@@ -1,6 +1,6 @@
 import numpy as np
 import math
-from sklearn.metrics import log_loss
+from sklearn.metrics import log_loss,accuracy_score,precision_score,recall_score,f1_score
 from random import *
 
 class Loss_functions():
@@ -29,35 +29,32 @@ class Loss_functions():
     def Lipshitz_loss(self):
         pass
 
-
-class Activation_functions():
-    # Encoding: 1-Sigmoid, 2-Relu, 3- Softmax, 4-SBAF
-
-    def weighted_avg(self,wts,inputs):
+def weighted_sum(wts,inputs,bias):
         sm = 0
         for i in range(len(wts)):
             sm+= wts[i]*inputs[i]
-        sm = sm/(len(wts))
+        sm += bias
         return sm
 
-    def Sigmoid(self,wts,inputs):
-        sm = self.weighted_avg(wts,inputs)
+class Activation_functions():
+    # Encoding: 1-Sigmoid, 2-Relu, 3- Softmax, 4-SBAF
+    def Sigmoid(self,wts,inputs,bias):
+        sm = weighted_sum(wts,inputs,bias)
         sm = math.exp(-sm)
         sm = 1/(1+sm)
         return sm
 
-    def Relu(self,wts,inputs):
-        sm = self.weighted_avg(wts,inputs)
-        sm = max(sm)
+    def Relu(self,wts,inputs,bias):
+        sm = weighted_sum(wts,inputs,bias)
         if(0>sm):
             return 0
         else:
             return sm
 
-    def Softmax(self,wts,inputs):
+    def Softmax(self,wts,inputs,bias):
         pass
 
-    def SBAF(self):
+    def SBAF(self,wts,inputs,bias):
         pass
 
     def encode(self,act):
@@ -70,6 +67,21 @@ class Activation_functions():
             return(3)
         elif(act == 'SBAF'):
             return(4)
+
+    # per layer calc of activation and output
+    def activate(self,inputs,wts,bias,code):
+        if(code ==1):
+            return (self.Sigmoid(wts,inputs,bias))
+        elif(code == 2):
+            return (self.Relu(wts,inputs,bias))
+        elif(code == 3):
+            return (self.Softmax(wts,inputs,bias))
+        elif(code == 4):
+            return (self.SBAF(wts,inputs,bias)) 
+        else:
+            raise Exception("Unknown activation function")  
+    
+
 
 class Scaler:
     def minmax(self,array):
@@ -94,13 +106,7 @@ class Scaler:
         return(np.array(scaled_array))
 
 class Optimizer:
-    def find_neighbours(self,weights,n):
-        pass
-
     def gradient_descent(self):
-        pass
-
-    def genetic_algorithm(self):
         pass
 
     def stochastic_gradient_descent(self):
@@ -128,21 +134,29 @@ class Metrics:
                 else:
                     FN+=1
         return([[TP,FP],[FN,TN]])
-        
 
+    # TP=00, FP=01, FN=10, TN=11
     def accuracy(self,y_pred,y_true):
         mat = self.confusion_matrix(y_pred,y_true)
         acc = mat[0][0]+mat[1][1]
         acc = acc/(mat[0][0]+mat[0][1]+mat[1][0]+mat[1][1])
         return(acc)
 
-    def precision(self):
-        # mat = self.confusion_matrix(y_pred,y_true)
-        pass
+    def precision(self,y_pred,y_true):
+        mat = self.confusion_matrix(y_pred,y_true)
+        prec = mat[0][0]/(mat[0][0]+mat[0][1])
+        return(prec)
+        
+    def recall(self,y_pred,y_true):
+        mat = self.confusion_matrix(y_pred,y_true)
+        rec = mat[0][0]/(mat[0][0]+mat[1][0])
+        return(rec)
 
-
-    def fscore(self):
-        pass
+    def fscore(self,y_pred,y_true):
+        rec = self.recall(y_pred,y_true)
+        prec = self.precision(y_pred,y_true)
+        fsc = (2*prec*rec)/(prec+rec)
+        return(fsc)
 
 class NeuralNet(Loss_functions,Activation_functions,Optimizer,Scaler,Metrics):
     def __init__(self,n):
@@ -151,11 +165,14 @@ class NeuralNet(Loss_functions,Activation_functions,Optimizer,Scaler,Metrics):
         self.hidden_neurons = []
         self.hd_weights = [[] for i in range(self.num_hidden_layers)]
         self.op_weights = []
-        self.weights = []
-        self.hd_bias = []
+        self.weights = [ [] for i in range(self.layers)]
+        self.hd_bias = [0 for i in range(self.num_hidden_layers)]
         self.op_bias = []
-        self.bias = []
+        self.bias = [0 for i in range(self.layers)]
         self.parameters = []
+        print(self.weights)
+
+    # all_wts = [   [[],[],[],[]] ,[hd2 weights],[hd3 weights],[op_weights]   ]
 
     def set_ip_layer(self,num):
         self.ip_neurons = [num,-1]
@@ -175,13 +192,32 @@ class NeuralNet(Loss_functions,Activation_functions,Optimizer,Scaler,Metrics):
             raise Exception("Layer does not exist")
         else:
             if(layer ==self.layers):
+                print(self.op_neurons)
                 if(len(wts)<self.op_neurons[0] or len(wts)>self.op_neurons[0]):
                     raise Exception("Number of weights don't match number of neurons")
                 self.op_weights=wts
+                self.weights[layer-1] = wts
             else:
+                print(self.hidden_neurons[layer-1])
                 if(len(wts)<self.hidden_neurons[layer-1][0] or len(wts)>self.hidden_neurons[layer-1][0]):
                     raise Exception("Number of weights don't match number of neurons")
                 self.hd_weights[layer-1] = wts 
+                self.weights[layer-1]=wts
+        # print("&&&",self.weights)
+
+    def set_bias(self, num, layer):
+        if(layer ==0):
+            raise Exception ("Input layer cannot have weights")
+        elif(layer > self.layers):
+            raise Exception("Layer does not exist")
+        else:
+            if(layer ==self.layers):
+                self.op_bias = num
+                self.bias[layer-1]=num
+            else:
+                self.hd_bias[layer-1] = num
+                self.bias[layer-1]=num 
+
 
 
     def get_weights(self,layer):
@@ -202,7 +238,9 @@ class NeuralNet(Loss_functions,Activation_functions,Optimizer,Scaler,Metrics):
         pass
 
     def predict(self):
+        # feedforward --- DONE!
         pass
+        
 
     def cross_validation(self,nfolds,dataset):
         dataset_split = list()
@@ -216,14 +254,65 @@ class NeuralNet(Loss_functions,Activation_functions,Optimizer,Scaler,Metrics):
                 dataset_split.append(fold)
         return dataset_split
 
-    def upsample(self):
-        pass
+    def upsample(self,y_true):
+        class0 = 0
+        class1 = 0
+        for val in range(len(y_true)):
+            if(val ==0):
+                class0+=1
+            else:
+                class1+=1
+        if(class0<class1):
+            pass
+            
 
     def flatten(self):
         pass
 
     def unflatten(self):
         pass
+    
+    def feed_forward(self,all_wts,all_bias,inputs):
+        # all_wts = [   [hs1 weights],[hd2 weights],[hd3 weights],[op_weights]   ]
+        # layer 0-ip 1-hd 2-hd 3-op layers=3 hidden_layers=2
+        layer = 1
+        inputs2 = [list(inputs)]
+        while(layer<=self.layers):
+            # next_ip = []
+            inputs2.append([])
+            if(layer<self.layers):
+                for neuron in range(self.hidden_neurons[layer-1][0]):
+                    print("%",inputs,all_wts[layer-1][neuron],all_bias[layer-1])
+                    op = self.activate(inputs,all_wts[layer-1][neuron],all_bias[layer-1],self.hidden_neurons[layer-1][1])
+                    inputs2[layer].append(op)
+                    # next_ip.append(op)
+                inputs = inputs2[layer]
+            else:
+                for neuron in range(self.op_neurons[0]):
+                    print("%",inputs,all_wts[layer-1][neuron],all_bias[layer-1])
+                    op=self.activate(inputs,all_wts[layer-1][neuron],all_bias[layer-1],self.op_neurons[1])
+                    inputs2[layer].append(op)
+            layer+=1
+        print("inputs:",inputs2)
+        return (op,inputs2)
+
+    def backpropogation(self,inputs,y_true,lr):
+        if(self.op_neurons[0]==1):
+            err_wts = []
+            err_bias = []
+            for i in range(len(inputs)):
+                (y_pred,inputs2) = self.feed_forward(self.weights,self.bias,inputs[i])
+                e = y_pred - y_true[i] 
+                err_bias.append(e) 
+                e = e* (inputs2[self.layers][i])
+                err_wts.append(e)
+
+            for layer in range(self.num_hidden_layers-1,0,-1):
+                pass
+
+
+        
+
 # NOTES:
 # # input layer is layer 0
 # # output layer is n-1
@@ -241,14 +330,45 @@ class NeuralNet(Loss_functions,Activation_functions,Optimizer,Scaler,Metrics):
 #   # print(s.standard_scale(a))
 # 
 
-# # nn = NeuralNet(3)
-# # nn.set_ip_layer(3)
-# # nn.set_hd_layer(2,"Sigmoid")
-# # nn.set_op_layer(1,"Sigmoid")
-# # print(nn.hidden_neurons)
-# # nn.set_weights([1],2)
-# # print(nn.ip_neurons)
-# # print(nn.hidden_neurons)
-# # print(nn.op_neurons)
-# # print(nn.get_weights(2))
+nn = NeuralNet(3)
+nn.set_ip_layer(2)
+nn.set_hd_layer(2,"Relu")
+nn.set_op_layer(1,"Sigmoid")
+# print(nn.hidden_neurons)
+nn.set_weights([[1,-1]],2)
+nn.set_bias(3,2)
+nn.set_weights([[1,2],[1,1]],1)
+nn.set_bias(4,1)
+print(nn.weights)
+print(nn.ip_neurons)
+print(nn.hidden_neurons)
+print(nn.op_neurons)
+print(nn.get_weights(1))
+x = nn.feed_forward(nn.weights, nn.bias, [2,1])
+print(x)
 # 
+
+# # m = Metrics()
+# # yp = [1,0,1,1,1,0,0]
+# # yt = [1,0,1,0,1,0,1]
+
+# # print(m.confusion_matrix(yp,yt))
+# # print("\n\n")
+# # print("acc")
+# # print(m.accuracy(yp,yt))
+# # print(accuracy_score(yt,yp))
+# # print("\n\n")
+# # print("rec")
+# # print(m.recall(yp,yt))
+# # print(recall_score(yt,yp))
+# # print("\n\n")
+# # print("prec")
+# # print(m.precision(yp,yt))
+# # print(precision_score(yt,yp))
+# # print("\n\n")
+# # print("fsc")
+# # print(m.fscore(yp,yt))
+# # print(f1_score(yt,yp))
+# # print("\n\n")
+# 
+
