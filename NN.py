@@ -1,13 +1,12 @@
 import numpy as np
 import math
-from sklearn.metrics import log_loss,accuracy_score,precision_score,recall_score,f1_score
 from random import *
-
+                
 class Loss_functions():
     def __init__(self):
         pass
 
-    # Binary cross entropy
+    # input 2 lists
     def logLoss(self,y_true,y_pred,eps = 1e-15):
         loss = []
         p = np.clip(y_pred, eps, 1 - eps)
@@ -17,11 +16,7 @@ class Loss_functions():
             else:
                 loss.append(-1* math.log(1 - p[i]))
         loss = np.array(loss)
-        return np.mean(loss)
-        
-
-    def sparse_categorical_cross_entropy(self):
-        pass
+        return np.mean(loss)     
 
     def root_mean_square(self):
         pass
@@ -29,22 +24,27 @@ class Loss_functions():
     def Lipshitz_loss(self):
         pass
 
+# inputs: 2 lists with inputs[] and weights[], 1 number
+# neuron wise
 def weighted_sum(wts,inputs,bias):
         sm = 0
-        print("---",inputs,wts)
         for i in range(len(wts)):
             sm+= wts[i]*inputs[i]
         sm += bias
         return sm
 
+
 class Activation_functions():
     # Encoding: 1-Sigmoid, 2-Relu, 3- Softmax, 4-SBAF
+
+    # inputs: 2 lists [] and []. bias is a number
     def Sigmoid(self,wts,inputs,bias):
         sm = weighted_sum(wts,inputs,bias)
         sm = math.exp(-sm)
         sm = 1/(1+sm)
         return sm
 
+    # inputs: 2 lists [],[]. bias and act is a number
     def derivative(self,act,wts,inputs,bias):
         if(act==1):
             z = self.Sigmoid(wts,inputs,bias)
@@ -118,12 +118,12 @@ class Scaler:
             scaled_array.append(element/sm)
         return(np.array(scaled_array))
 
-class Optimizer:
-    def gradient_descent(self):
-        pass
+# class Optimizer:
+#     def gradient_descent(self):
+#         pass
 
-    def stochastic_gradient_descent(self):
-        pass
+#     def stochastic_gradient_descent(self):
+#         pass
 
 class Metrics:
     def confusion_matrix(self,y_pred,y_true):
@@ -183,7 +183,7 @@ class NeuralNet(Loss_functions,Activation_functions,Optimizer,Scaler,Metrics):
         self.op_bias = []
         self.bias = [0 for i in range(self.layers)]
         self.parameters = []
-        print(self.weights)
+        # print(self.weights)
 
     # all_wts = [   [[],[],[],[]] ,[hd2 weights],[hd3 weights],[op_weights]   ]
 
@@ -205,17 +205,21 @@ class NeuralNet(Loss_functions,Activation_functions,Optimizer,Scaler,Metrics):
             raise Exception("Layer does not exist")
         else:
             if(layer ==self.layers):
-                print(self.op_neurons)
-                if(len(wts)<self.op_neurons[0] or len(wts)>self.op_neurons[0]):
+                # print(self.op_neurons)
+                if(len(wts)!=self.op_neurons[0]):
                     raise Exception("Number of weights don't match number of neurons")
                 self.op_weights=wts
                 self.weights[layer-1] = wts
+                # print("w:",self.weights)
             else:
-                print(self.hidden_neurons[layer-1])
-                if(len(wts)<self.hidden_neurons[layer-1][0] or len(wts)>self.hidden_neurons[layer-1][0]):
+                # print(self.hidden_neurons[layer-1][0])
+                # print(len(wts))
+                if(len(wts)!=self.hidden_neurons[layer-1][0]):
                     raise Exception("Number of weights don't match number of neurons")
                 self.hd_weights[layer-1] = wts 
                 self.weights[layer-1]=wts
+                # print("w:",self.weights)
+                # print()
         # print("&&&",self.weights)
 
     def set_bias(self, num, layer):
@@ -268,15 +272,7 @@ class NeuralNet(Loss_functions,Activation_functions,Optimizer,Scaler,Metrics):
         return dataset_split
 
     def upsample(self,y_true):
-        class0 = 0
-        class1 = 0
-        for val in range(len(y_true)):
-            if(val ==0):
-                class0+=1
-            else:
-                class1+=1
-        if(class0<class1):
-            pass
+        pass
             
 
     def flatten(self):
@@ -295,18 +291,18 @@ class NeuralNet(Loss_functions,Activation_functions,Optimizer,Scaler,Metrics):
             inputs2.append([])
             if(layer<self.layers):
                 for neuron in range(self.hidden_neurons[layer-1][0]):
-                    print("%",inputs,all_wts[layer-1][neuron],all_bias[layer-1])
+                    # print("%",inputs,all_wts[layer-1][neuron],all_bias[layer-1])
                     op = self.activate(inputs,all_wts[layer-1][neuron],all_bias[layer-1],self.hidden_neurons[layer-1][1])
                     inputs2[layer].append(op)
                     # next_ip.append(op)
                 inputs = inputs2[layer]
             else:
                 for neuron in range(self.op_neurons[0]):
-                    print("%",inputs,all_wts[layer-1][neuron],all_bias[layer-1])
+                    # print("%",inputs,all_wts[layer-1][neuron],all_bias[layer-1])
                     op=self.activate(inputs,all_wts[layer-1][neuron],all_bias[layer-1],self.op_neurons[1])
                     inputs2[layer].append(op)
             layer+=1
-        print("inputs:",inputs2)
+        # print("inputs:",inputs2)
         return (op,inputs2)
 
     def get_delta(self, y_true, inputs):
@@ -314,55 +310,107 @@ class NeuralNet(Loss_functions,Activation_functions,Optimizer,Scaler,Metrics):
         for layer in range(self.layers,0,-1):
             if(layer == self.layers):
                 delta.append([])
-                print("^&^",self.weights[layer-1][0])
-                print("^&$",inputs[layer-1])
+                # print("^&^",self.weights[layer-1][0])
+                # print("^&$",inputs[layer-1])
                 z = self.Sigmoid(self.weights[layer-1][0],inputs[layer-1],self.bias[layer-1])
                 delta[self.layers - layer].append(z-y_true)
-                print("()",z-y_true)
-                print("-------------")
+                # print("()",z-y_true)
+                # print("-------------")
             else:
-                for wt in self.weights[layer-1]:
-                    print(wt)
-                    d=[]
-                    for w in wt:
-                        sm = 0
-                        for de in delta[self.layers-layer-1]:
-                            sm+=w*de
-                            print("#",de)
-                        # print(sm)
-                        d.append(sm)
-                    delta.append(d)
+                # print("d",delta[self.layers-layer-1])
+                # print("w",self.weights[layer])
+                wt = self.weights[layer]
+                wt = [[wt[j][i] for j in range(len(wt))] for i in range(len(wt[0]))]
+                # wt = wt.transpose()
+                ab = np.dot(wt,delta[self.layers-layer-1])
+                # print("done")
+                # wt = self.weights[layer]
+                # print("i",ip)
+                # print("wt",wt)
+                # print(ab)
+                # print("+_+",inputs)
+                # print(self.bias[layer-1])
+                # print(self.hidden_neurons[layer-1])
+                # print("0000",inputs[layer])
+                # de = []
+                # for neuron in range(self.hidden_neurons[layer-1][0]):
+                #     # ip = [inputs[layer-1][i] for i in range(len)]
+                #     d = 0
+                #     print("%",inputs[layer-1][neuron])
+                #     for wt in self.weights[layer-1][neuron]:
+                #         d+=(wt*inputs[layer][neuron])
+                #     de.append(d)
+                # print("+)_+",de)
+                s=[]
+                for neuron in range(self.hidden_neurons[layer-1][0]):
+                    sig = nn.Sigmoid(self.weights[layer-1][neuron],inputs[layer],self.bias[layer-1])
+                    sig = sig*(1-sig)
+                    s.append(sig)
+                print("SIG:",s)
+                print("+_+_",ab)
+                
+                d=[]
+                for i in range(len(s)):
+                    d.append(s[i]*ab[i])
+                
+                delta.append(d)
+                # print(ab)
+                
 
                 # print("^&^",self.weights[layer-1][0])
                 # print("^&$",delta[self.layers - layer])
                 # sm = weighted_sum(self.weights[layer-1],delta[self.layers - layer-1],0)
                 # d = self.derivative(self.hidden_neurons[layer-1][1],self.weights[layer-1],inputs[layer-1],self.bias[layer-1])
                 # delta[self.layers - layer].append(sm*d)
+        # print("^^^^^^^^^^")
+        # print(delta)
+        # print("^^^^^^^^^^")
         return(delta)
 
-    def run_on_all_ips(self,ips,y_true):
+    def get_avg_delta(self,ips,y_true):
         d=[]
         for i in range(len(ips)):
             (o,ip1) = self.feed_forward(self.weights,self.bias,ips[i])
             # print("&&",ip1)
             d.append(self.get_delta(y_true[i],ip1))
-            # print(delta)
+        # print(d)
         # print("===============")
         avg_d = []
-        for j in range(d[0]):
-            for k in range(d[0][j]):
+        for j in range(len(d[0])):
+            a = []
+            for k in range(len(d[0][j])):
                 s = 0
-                a = []
                 for i in range(len(d)):
                     s+=d[i][j][k]
                 s=s/len(d)
                 a.append(s)
             avg_d.append(a)
+        return(avg_d)
 
-        return(d)
+    def weight_inc(self,ips,true):
+        pass
 
     def backpropogation(self,inputs,y_true,lr):
-        pass
+        delta = self.get_avg_delta(inputs,y_true)
+        del_w = []
+        for layer in range(self.layers,0,-1):
+            d = []
+            if layer == self.layers:
+                for i in range(len(self.weights[layer-1])):
+                    d.append(delta[0][0]*inputs[layer-1][i])
+                del_w.append(d)
+            else:
+                d = []
+                for i in range(len(self.weights[layer-1])):
+                    d.append(delta[self.layers - layer][i]*inputs[layer-1][i])
+                del_w.append(d)
+        print(del_w)
+            # for i in len(self.weights[layer-1]):
+            #     d.append(delta[self.layers - layer]*inputs[layer-1][i])
+            
+                
+                # dw = np.dot(inputs,delta[self.layers-layer])
+
 
         
 
@@ -407,12 +455,13 @@ nn = NeuralNet(3)
 nn.set_ip_layer(2)
 nn.set_hd_layer(2,"Relu")
 nn.set_op_layer(1,"Sigmoid")
-nn.set_weights([[0.12,0.91],[-0.21,0.562]],1)
-nn.set_weights([[0.2,0.3]],2)
+nn.set_weights([[0.1,0.3],[0.2,0.4]],1)
+nn.set_weights([[0.5, 0.6]],2)
 nn.set_bias(2,1)
 nn.set_bias(4,2)
-print(nn.run_on_all_ips([[1,1],[-1,-1],[3,3]],[1,0,1]))
-
+# print(nn.weights)
+print(nn.get_avg_delta([[1,1],[-1,-1],[3,3]],[1,0,1]))
+# print(nn.get_delta(1,[0.3,-0.4]))
 
 # # m = Metrics()
 # # yp = [1,0,1,1,1,0,0]
@@ -437,4 +486,3 @@ print(nn.run_on_all_ips([[1,1],[-1,-1],[3,3]],[1,0,1]))
 # # print(f1_score(yt,yp))
 # # print("\n\n")
 # 
-
